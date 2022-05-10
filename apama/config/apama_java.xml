@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<java-applications>
+	<application name="sustAGE">
+		<version>1.0</version>
+		<company></company>
+		<author></author>
+		<description></description>
+		<classpath>.../sustAGE/mysql-connector-java-8.0.19.jar</classpath>
+		<build-auto>true</build-auto>
+		<content>
+			<file path="java/src/connection/sql.java" project=""/>
+			<file path="java/src/obb/obbCalc.java" project=""/>
+			<file path="java/src/obb/obbType.java" project=""/>
+			<file path="java/src/sustage/sqlconnector.java" project=""/>
+			<file path="java2/src/demo/SQL2.java" project=""/>
+			<file path="java2/src/demo/sql3.java" project=""/>
+		</content>
+	</application>
+</java-applications>
