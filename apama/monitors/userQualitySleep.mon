@@ -1,0 +1,47 @@
+package sustage;
+using sustage.userQSleep;
+using sustage.userSleepHoursKA;
+
+/** This monitor is responsible for ...  */
+monitor userQualitySleep {
+
+	action onload() {
+		log "Loaded monitor userQualitySleep" at INFO;
+		
+		userQSleep myqs;
+		
+		on all userSleepHoursKA() as s{
+			
+		}
+		
+		//Reading the input stream
+		stream<userSleepHoursKA> ushs := from s in all userSleepHoursKA() select userSleepHoursKA("userSleepHoursKA", s.isTest, s.timestamp, s.userId, s.aggregationType, s.value);
+		
+		from se in ushs 
+		  select se as se{
+			float sleepvalue := se.value;
+			//FIXME!: 
+			//Parameter 0 (areaId) should be read from database for userId
+			if (sleepvalue < 4.5){
+				//SleepQ_ExtLow
+				myqs := userQSleep("userQSleepAP",se.isTest, se.timestamp, se.userId, 0, "SleepQ_ExtLow", sleepvalue);
+			} else if (sleepvalue <6.0) {
+				//SleepQ_low
+				myqs := userQSleep("userQSleepAP",se.isTest, se.timestamp, se.userId, 0, "SleepQ_low", sleepvalue);
+			} else if (sleepvalue < 7.5){
+				//SleepQ_Normal
+				myqs := userQSleep("userQSleepAP",se.isTest, se.timestamp, se.userId, 0, "SleepQ_Normal", sleepvalue);
+			} else {
+				//SleepQ_High>= 7.5h
+				myqs := userQSleep("userQSleepAP",se.isTest, se.timestamp, se.userId, 0, "SleepQ_High", sleepvalue);
+			}
+			
+			print(myqs.toString());
+			log(myqs.toString());
+			send myqs to "mqtt://sustage/apama";
+			
+		}
+		
+		
+	}
+}

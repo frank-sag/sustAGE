@@ -1,0 +1,184 @@
+﻿package sustage;
+using sustage.environmental;
+using sustage.aggtest;
+//using com.industry.analytics.Data;
+using com.softwareag.connectivity.ConnectivityPlugins;
+using com.apama.aggregates.percentile;
+using com.apama.aggregates.mean;
+using com.apama.aggregates.last;
+using sustage.meanEnvArea;
+using sustage.FLTalert;
+using sustage.FLTaverage;
+using sustage.windAvg;
+using sustage.noiseAvg;
+using sustage.luminanceAvg;
+using sustage.windAlert;
+using sustage.noiseAlert;
+using sustage.luminanceAlert;
+
+/** This monitor is responsible for ...  */
+monitor environmentalMonitor {
+	//config from CorrelatorConfig.yaml
+	import "envPlugin" as envplugin;
+    string target;
+    dictionary<string, string> emptyDictionary:= new dictionary <string,string>;
+    sequence<string>           emptySequence;
+	
+    //FIXME: ToDo Database connection for the FLT conditions
+    
+	action onload() {
+
+		print("Connecting... ");
+		log "Loaded monitor environmentalMonitor" at INFO;
+		
+		on all environmental() as e{
+			print(e.toString());
+		}
+		
+		//Create Stream for the mean Values
+		stream<meanEnvArea> mean300Env := from e in all environmental() within 300.0 every 300.0 group by e.areaId select meanEnvArea(last(e.timestamp),last(e.isTest),e.areaId,mean(e.temperature), mean(e.humidity),mean(e.luminance.toFloat()),mean(e.noise.toFloat()),mean(e.wind.toFloat()));
+		stream<meanEnvArea> mean60Env := from e in all environmental() within 60.0 every 60.0 group by e.areaId select meanEnvArea(last(e.timestamp),last(e.isTest),e.areaId,mean(e.temperature), mean(e.humidity),mean(e.luminance.toFloat()),mean(e.noise.toFloat()),mean(e.wind.toFloat()));
+
+		//getting the last element of the mean300Env stream 
+		from me in mean300Env 
+		    select me as env {
+			float heatindex := envplugin.heat_index(env.temperature,env.humidity);
+			FLTaverage myfltavg := FLTaverage("envConditsionFLTAverageAP", env.isTest,env.timestamp,  env.areaId,"AverageFLT300",heatindex);
+			print (myfltavg.toString());
+			send myfltavg to "mqtt://sustage/apama";
+			//Luminance average event
+			luminanceAvg lumavg := luminanceAvg("envConditionLUMINANCEAverageAP",env.isTest,env.timestamp,env.areaId,"AverageLUMINANCE300",env.luminance);
+			print (lumavg.toString());
+			send lumavg to "mqtt://sustage/apama";
+			//FLTalert myfltalert;
+			// -- HPA Block -- Begin
+			if (heatindex > 35.0 and env.areaId = 2){		//HPA
+				//Extrem value
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"ExtHighFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex >29.0 and env.areaId = 2){	//HPA
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"HighFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex <8.0 and env.areaId = 2){	//HPA
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"ExtLowFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex <13.0 and env.areaId = 2){	//HPA
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"LowFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			//-- HPA Block -- End
+			
+			//-- CRF Block -- Begin
+			else if (heatindex >23.0 and env.areaId = 1){	//CRF
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"HighFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex <18.0 and env.areaId = 1){	//CRF
+				//low index	
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"LowFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			}
+			//-- CRF Block -- End
+			
+		
+			
+		}
+
+		from me in mean60Env 
+		    select me as env {
+			float heatindex := envplugin.heat_index(env.temperature,env.humidity);
+
+			//FLT average event
+			FLTaverage myfltavg := FLTaverage("envConditionFLTAverageAP", env.isTest,env.timestamp,  env.areaId,"AverageFLT60",heatindex);
+			print (myfltavg.toString());
+			send myfltavg to "mqtt://sustage/apama";
+			
+			//noise average event
+			noiseAvg noiseavg := noiseAvg("envConditionNOISEAverageAP",env.isTest,env.timestamp,env.areaId,"AverageNOISE60",env.noise);
+			send noiseavg to "mqtt://sustage/apama";
+			print (noiseavg.toString());
+			
+			//noise average event
+			windAvg windavg := windAvg("envConditionWINDAverageAP",env.isTest,env.timestamp,env.areaId,"AverageWIND60",env.wind);
+			send windavg to "mqtt://sustage/apama";
+			print (windavg.toString());
+			
+			//Check for Alert Messages
+			if (env.wind >= 7.0){
+				send windAlert("envConditionWINDalertAP",env.isTest,env.timestamp,env.areaId,"HighWIND",env.wind) to "mqtt://sustage/apama";
+				print(" - HighWIND Alert");
+			}
+			if(env.noise>=90.0){
+				send noiseAlert("envConditionNOISEalertAP",env.isTest,env.timestamp,env.areaId,"HighNOISE",env.noise) to "mqtt://sustage/apama";
+				print(" - HighNOISE Alert");
+			}
+			//HPA - areaId=2
+			if(env.luminance <= 75.0 and env.areaId = 2 ){
+				send luminanceAlert("envConditionLUMINANCEalertAP",env.isTest,env.timestamp,env.areaId,"LowLuminance",env.luminance) to "mqtt://sustage/apama";
+				print(" - LowLuminance Alert - AreaId 2 - HPA");
+			}
+			//CRF - areaId=2
+			if(env.luminance <= 500.0 and env.areaId = 1 ){
+				send luminanceAlert("envConditionLUMINANCEalertAP",env.isTest,env.timestamp,env.areaId,"LowLuminance",env.luminance) to "mqtt://sustage/apama";
+				print(" - LowLuminance Alert - AreaId 1 - CRF");
+			}
+			
+			// -- HPA Block -- Begin
+			if (heatindex > 35.0 and env.areaId = 2){		//HPA
+				//Extrem value
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"ExtHighFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex >29.0 and env.areaId = 2){	//HPA
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"HighFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex <8.0 and env.areaId = 2){	//HPA
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"ExtLowFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex <13.0 and env.areaId = 2){	//HPA
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"LowFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			//-- HPA Block -- End
+			
+			//-- CRF Block -- Begin
+			else if (heatindex >23.0 and env.areaId = 1){	//CRF
+				//high index 
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"HighFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			} 
+			else if (heatindex <18.0 and env.areaId = 1){	//CRF
+				//low index	
+				FLTalert myfltalert := FLTalert("envConditionFLTalertAP",env.isTest,env.timestamp,env.areaId,"LowFLT",heatindex);
+				send myfltalert to "mqtt://sustage/apama";
+				print (myfltalert.toString());
+			}
+			//-- CRF Block -- End
+		    
+		}
+	}
+
+}

@@ -1,0 +1,29 @@
+package sustage;
+using sustage.hpaObject;
+using sustage.userLocation;
+using sustage.rawEventforDistance;
+using sustage.vlAccidentAlertAP;
+/** This monitor is responsible for ...  */
+monitor obbMonitor {
+		import "obb.obbCalc" as obbCalc;
+	action onload() {
+		monitor.subscribe("mqtt:sustage/hpaVision");
+		monitor.subscribe("mqtt:sustage/location");
+		stream<rawEventforDistance>refd := from hpa in all hpaObject() retain 1 from ul in all userLocation() retain 1 select rawEventforDistance(ul.timestamp,ul.isTest,ul.userId,ul.x,ul.y,ul.z,hpa.OBB);
+
+		log "Loaded monitor obbMonitor" at INFO;
+		
+		from hpa in refd
+			select hpa as obj{
+				print(obj.toString());
+				sequence<float> centroids :=[obj.x,obj.y,obj.z];
+				float dist := obbCalc.usePre(obj.OBB,centroids);
+				print("Distance OBB" + dist.toString());
+				if (dist <10.0){
+				send vlAccidentAlertAP("vlAccidentAlertAP",obj.isTest,obj.timestamp,obj.userId,1,"ContAccidentRisk",dist)to "mqtt://sustage/apama";
+					//send Alert Event
+				}
+			}
+	
+	}
+}

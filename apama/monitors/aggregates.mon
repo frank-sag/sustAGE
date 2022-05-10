@@ -1,0 +1,183 @@
+package aggregates.sustAGE;
+
+aggregate uniqueList(sequence<integer> list) returns sequence<integer> {
+	/**
+	 creates a uniquelist
+	 */
+	sequence<integer> total;
+	sequence<integer> temp;
+	sequence<integer> lenghtslist;
+
+	action init() {
+		total := [];
+		temp :=[];
+		lenghtslist :=[]; 
+	}
+	
+	action add(sequence<integer> list) {
+		lenghtslist.append(list.size());
+		temp.appendSequence(list);
+		integer i;
+		for i in list{
+			if (not(isElement(total, i))){
+				total.append(i);
+			}
+		}
+	}
+	
+	action remove(sequence<integer> list) {
+		integer i := list.size();
+		sequence<integer> removeList := list;
+		integer k:=0;
+		integer l;
+		while k<i{
+			temp.remove(0);
+			k:=k+1;
+		}
+		for l in removeList{
+			if(not(temp.size()=0)){
+			if(isElement(total,l)){
+			if(not(isElement(temp,l))){
+				total.remove(total.indexOf(l));
+			}
+			}
+			}
+		}
+	}
+	
+	action value() returns sequence<integer> {
+		return total;
+	}
+	action isElement(sequence<integer> list , integer i )returns boolean{
+		integer l;
+		if list.size() = 0{
+			return false;
+		}
+		for l in list{
+			if(l = i){
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
+aggregate countEpisodes(string episode) returns sequence<integer> {
+	/**
+	 * The number of HarshDrivingDetected
+	 * events in the window.
+	 */
+	sequence<integer> total;
+
+	action init() {
+		total := [0,0,0];
+	}
+	
+	action add(string episode) {
+		if (episode = "Posture_riskHigh"){
+		total[2] := total[2] + 1;
+		}
+		else if (episode = "Posture_riskMedium"){
+			total[1] := total[1] + 1;
+			}
+		else {
+			total[0] := total[0] + 1;
+		}
+	}
+	
+	action remove(string episode) {
+		if (episode = "Posture_riskHigh"){
+			total[2] := total[2] - 1;
+			}
+			else if (episode = "Posture_riskMedium"){
+				total[1] := total[1] - 1;
+				}
+			else {
+				total[0] := total[0] - 1;
+			}
+	}
+	
+	action value() returns sequence<integer> {
+		return total;
+	}
+}
+aggregate postureSum(sequence<integer> posture,sequence<integer> riskLevel) returns sequence<integer> {
+	/**
+	 creates a uniquelist
+	 */
+	sequence<integer> total;
+
+	action init() {
+		total := [];
+	}
+	
+	action add(sequence<integer> posture,sequence<integer> riskLevel) {
+		integer p;
+		integer k :=0;
+		if(posture.size() = riskLevel.size()){
+		for p in posture{
+			print("posture"+ p.toString());
+			if (total.size()<p){
+				while(total.size()<p){
+				total.append(0);
+				}
+			}
+			total[p-1]:= total[p-1]+riskLevel[k];
+			k :=k+1;
+		}
+		}
+	}
+	
+	action remove(sequence<integer> posture,sequence<integer> riskLevel) {
+		integer p;
+		integer k :=0;
+		if(posture.size() = riskLevel.size()){
+		for p in posture{
+			total[p-1]:= total[p-1]-riskLevel[k];
+			k :=k+1;
+		}
+		}
+	}
+	
+	action value() returns sequence<integer> {
+		return total;
+	}
+}
+
+aggregate stressCount(sequence<integer> posture) returns sequence<integer> {
+	/**
+	 creates a uniquelist
+	 */
+	sequence<integer> total;
+
+	action init() {
+		total := [];
+	}
+	
+	action add(sequence<integer> posture) {
+		integer p;
+		integer k :=0;
+		for p in posture{
+			if (total.size()<p){
+				while(total.size()<p){
+				total.append(0);
+				}
+			}
+			total[p-1]:= total[p-1]+1;
+			k :=k+1;
+		}
+	}
+	
+	action remove(sequence<integer> posture) {
+		integer p;
+		integer k :=0;
+		for p in posture{
+			total[p-1]:= total[p-1]-1;
+			k :=k+1;
+		}
+	}
+	
+	action value() returns sequence<integer> {
+		return total;
+	}
+}

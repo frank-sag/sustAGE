@@ -1,0 +1,49 @@
+package sustage;
+using sustage.userInBreakAP;
+
+
+
+/** This monitor is responsible for ...  */
+monitor userBreakMonitor {
+	action onload() {
+		log "Loaded monitor userBreakMonitor" at INFO;
+		
+		userInBreakAP mybreak;
+		
+		string minutes := "30";
+		string hours := "12";
+		string days_of_month := "*";
+		string months := "*";
+		string days_of_week := "1:5";  //monday - Friday
+		//Sunday = 0, Monday=1, Friday = 5, Saturday = 6
+			
+		//FIXME: timestamp is currently in GMT+1 but should be read from data base
+		//@Marco: please read userIds from database and add them to the events
+		//@Marco: please read areaId from database and add them to the events
+
+
+		//at(minutes, hours, days_of_month, months, days_of_week [ ,seconds])
+		on all at (minutes,hours,days_of_month,months,days_of_week){
+		//on all at (*/1,*,*,*,*,*){
+			mybreak := userInBreakAP("userInBreakAP",false,currentTime.floor()*1000,9,0,"TimeForBreak",0.0);
+			print(mybreak.toString());
+			send mybreak to "mqtt://sustage/apama";
+			
+			mybreak := userInBreakAP("userInBreakAP",false,currentTime.floor()*1000,10,0,"TimeForBreak",0.0);
+			print(mybreak.toString());
+			send mybreak to "mqtt://sustage/apama";
+			
+			mybreak := userInBreakAP("userInBreakAP",false,currentTime.floor()*1000,11,0,"TimeForBreak",0.0);
+			print(mybreak.toString());
+			send mybreak to "mqtt://sustage/apama";
+		}
+
+	}
+	
+
+	
+
+
+	
+	
+}

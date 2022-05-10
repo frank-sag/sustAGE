@@ -1,0 +1,11 @@
+package sustage;
+using com.softwareag.connectivity.ConnectivityPlugins;
+/** This monitor is responsible for ...  */
+monitor subscriberMonitor {
+	action onload() {
+		log "Loaded monitor subscriberMonitor" at INFO;
+		//ConnectivityPlugins.onApplicationInitialized();
+		//monitor.subscribe("mqtt:sustage/environmental");
+		//monitor.subscribe("mqtt:sustage/heartRate");
+	}
+}

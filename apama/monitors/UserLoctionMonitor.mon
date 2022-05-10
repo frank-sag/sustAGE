@@ -1,0 +1,483 @@
+package sustage;
+using sustage.locDataError;
+using sustage.userLocation;
+using sustage.userLocationState;
+using sustage.gpscoordinate;
+using sustage.userWorkplace;
+using sustage.eventCount;
+using sustage.workSchedule;
+using sustage.userLocationBeacon;
+using sustage.locationStateBeacon;
+using sustage.userLocalizationBeaconWSAP;
+using com.apama.eda.DateTimeUtil;
+using com.apama.aggregates.count;
+using com.apama.aggregates.last;
+/** This monitor is responsible for ...  */
+
+monitor UserLoctionMonitor {
+	import "sustage.sqlconnector" as sql;
+	
+	//Configuration
+	float cvar_distance_work :=1.0;		//Former 0.75 in km
+	
+	//DB Passwords
+	string user := "sustage";
+	string password := "SuStAg3U$eR";
+
+	//string database := "sustage-mysql:3306/sustage";
+	
+	
+	//Here are the database values stored
+	dictionary<string, gpscoordinate> workLocationDict;
+	dictionary<string, gpscoordinate> workLocation2Dict;
+	dictionary<string, gpscoordinate> workLocation3Dict;
+	dictionary<string, gpscoordinate> workLocation4Dict;
+	dictionary<string, gpscoordinate> homeLocationDict;
+	dictionary<string, workSchedule> workScheduleDict;
+	dictionary<integer ,integer> arrivedAtWorkDict;
+	dictionary<integer ,integer> leftWorkDict;
+	dictionary<integer ,integer> arrivedAtHomeDict;
+	dictionary<integer ,integer> leftHomeDict;
+	//own Python math lib
+	import "mathPlugin" as Math;
+	//convert function
+	action degreesToRadians(float degrees) returns float {
+		  return degrees * float.PI / 180.0;
+		}
+	//helper function for check triangle
+	action sign (float p1x,float p1y, float p2x ,float p2y,float p3x,float p3y) returns float{
+		return (p1x -p3x) * (p2y-p3y) - (p2x -p3x) *(p1y -p3y);
+	}
+	action PointInTriangle(float ptx,float pty, float v1x,float v1y,float v2x,float v2y, float v3x, float v3y) returns boolean {
+		boolean b1;
+		boolean b2;
+		boolean b3;
+		b1 := sign(ptx,pty,v1x,v1y,v2x,v2y) <0.0;
+		b2 := sign(ptx,pty,v2x,v2y,v3x,v3y)<0.0;
+		b3 := sign(ptx,pty,v3x,v3y,v1x,v1y)<0.0;
+		return ((b1 =b2) and (b2 = b3));
+	}
+	//distance between two gps coordinates 
+	//returns value in KM 
+	action locationDistance (float lat1,float lon1,float lat2,float lon2 ) returns float {
+		float earthRadiusKm := 6371.0;
+		float dLat := degreesToRadians(lat2-lat1);
+		float  dLon := degreesToRadians(lon2-lon1);
+		
+		lat1 := degreesToRadians(lat1);
+		lat2 := degreesToRadians(lat2);
+		float a := Math.sin(dLat/2.0) * Math.sin(dLat/2.0) +Math.sin(dLon/2.0) * Math.sin(dLon/2.0) * Math.cos(lat1) * Math.cos(lat2); 
+		float c := 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0-a)); 
+		return earthRadiusKm * c;
+	}
+	//Checking the database and but it in a dictionary
+	action Databasecall(){
+		print("Database is called");
+		sql.initConnection(database,user,password);
+		string sqloutput := sql.execQueryUserloc("SELECT * FROM userplaces WHERE locationId=0");
+		log "Loaded monitor UserLoctionMonitor Work" at INFO;
+		sequence<string> tokens:= "\n".tokenize(sqloutput);
+		integer i := 0;
+		while(i <tokens.size()){
+			string tok :=tokens[i];
+			sequence<string> out:=":".tokenize(tok);
+			//save Worklocation
+			workLocationDict.add(out[1],gpscoordinate(out[3].toFloat(),out[5].toFloat(),out[7].toInteger()));
+			print(out.toString());
+			i:= i+1;
+		}
+		string sqloutputh := sql.execQueryUserloc("SELECT * FROM userplaces WHERE locationId=1");
+		log "Loaded monitor UserLoctionMonitor Home" at INFO;
+		sequence<string> tokensh:= "\n".tokenize(sqloutputh);		
+		integer k := 0;
+		while(k <tokensh.size()){
+			string tok :=tokensh[k];
+			sequence<string> out:=":".tokenize(tok);
+			//save HomeLocation of User
+			homeLocationDict.add(out[1],gpscoordinate(out[3].toFloat(),out[5].toFloat(),out[7].toInteger()));
+			print(out.toString());
+			k:= k+1;
+		}
+		string sqloutputw2 := sql.execQueryUserloc("SELECT * FROM userplaces WHERE locationId=2");
+		log "Loaded monitor UserLoctionMonitor Home" at INFO;
+		sequence<string> tokensw:= "\n".tokenize(sqloutputw2);		
+		integer l := 0;
+		while(l <tokensw.size()){
+			string tok :=tokensw[l];
+			sequence<string> out:=":".tokenize(tok);
+			//save HomeLocation of User
+			workLocation2Dict.add(out[1],gpscoordinate(out[3].toFloat(),out[5].toFloat(),out[7].toInteger()));
+			print(out.toString());
+			l:= l+1;
+		}
+		string sqloutputw3 := sql.execQueryUserloc("SELECT * FROM userplaces WHERE locationId=3");
+		log "Loaded monitor UserLoctionMonitor Home" at INFO;
+		sequence<string> tokensw3:= "\n".tokenize(sqloutputw3);		
+		integer m := 0;
+		while(m <tokensw3.size()){
+			string tok :=tokensw3[m];
+			sequence<string> out:=":".tokenize(tok);
+			//save HomeLocation of User
+			workLocation3Dict.add(out[1],gpscoordinate(out[3].toFloat(),out[5].toFloat(),out[7].toInteger()));
+			print(out.toString());
+			m:= m+1;
+		}
+		string sqloutputw4 := sql.execQueryUserloc("SELECT * FROM userplaces WHERE locationId=4");
+		log "Loaded monitor UserLoctionMonitor Home" at INFO;
+		sequence<string> tokensw4:= "\n".tokenize(sqloutputw4);		
+		integer n := 0;
+		while(n <tokensw4.size()){
+			string tok :=tokensw4[n];
+			sequence<string> out:=":".tokenize(tok);
+			//save HomeLocation of User
+			workLocation4Dict.add(out[1],gpscoordinate(out[3].toFloat(),out[5].toFloat(),out[7].toInteger()));
+			print(out.toString());
+			n:= n+1;
+		}
+		string sqloutputWorkschedule := sql.execQueryWorkschedule("SELECT * FROM workschedule_today");
+		log "Loaded monitor UserLoctionMonitor Schedule" at INFO;
+		sequence<string> tokensworksh:= "\n".tokenize(sqloutputWorkschedule);		
+		integer j := 0;
+		while(j <tokensworksh.size()){
+			string tok :=tokensworksh[j];
+			sequence<string> out:=":".tokenize(tok);
+			//save Workschedule
+			workScheduleDict.add(out[1],workSchedule(out[3].toInteger(),out[5].toInteger(),out[7].toInteger()));
+			print(out.toString());
+			j:= j+1;
+		}
+	}
+	
+
+	action onload() {
+		//Connecting to Database and parse it to store it at the worklocation Dict homelocation Dict
+		// and workschedule Dict
+		
+		Databasecall();
+		//once a day checking the database if there are any updates
+		//every 30 min
+		on all at(*/30,*, *, *, *)Databasecall();
+		//Open the database
+		
+		
+		//Execute the Query
+		monitor.subscribe("internal");
+		stream <locDataError> dataerr := from u in all locDataError() within 500.0 every 5.0 group by u.sensorId select locDataError("locDataError",last(u.isTest),last(u.timestamp),last(u.userId),last(u.userId.toString()),true);
+		on all userLocation() as ul {
+			on all wait(900.0) and not userLocation(userId = ul.userId){
+				print ("LocDataError: "+ locDataError("locDataError",ul.isTest,ul.timestamp,ul.userId,ul.userId.toString(),true).toString());
+				send  locDataError("locDataError",ul.isTest,ul.timestamp,ul.userId,ul.userId.toString(),true) to "mqtt://sustage/control";
+			}
+		}
+		
+		on all userLocation() as ul{
+			send ul to "com.apama.queries";
+			print (ul.toString());
+			//userLocation at Workplace --> send arrive at workplace to UM and store in KB 
+			gpscoordinate userCoor := workLocationDict.getOr(ul.userId.toString(),gpscoordinate(200.0,200.0,-1));
+			gpscoordinate userCoor2 := workLocation2Dict.getOr(ul.userId.toString(),gpscoordinate(200.0,200.0,-1));
+			gpscoordinate userCoor3 := workLocation3Dict.getOr(ul.userId.toString(),gpscoordinate(200.0,200.0,-1));
+			gpscoordinate userCoor4 := workLocation4Dict.getOr(ul.userId.toString(),gpscoordinate(200.0,200.0,-1));
+			//Calculation of Distance to work
+			float min := float.MAX;
+			if (userCoor.lat = 200.0){
+				print("No user in Dict1");
+			}else{
+			float distance := locationDistance(ul.x,ul.y,userCoor.lat,userCoor.lon);
+				if(distance < min){
+					min := distance;
+				}
+			}
+			if (userCoor2.lat = 200.0){
+				print("No user in Dict2");
+			}else{
+			float distance := locationDistance(ul.x,ul.y,userCoor2.lat,userCoor2.lon);
+				if(distance < min){
+					min := distance;
+				}
+			}
+			if (userCoor3.lat = 200.0){
+				print("No user in Dict3");
+			}else{
+			float distance := locationDistance(ul.x,ul.y,userCoor3.lat,userCoor3.lon);
+				if(distance < min){
+					min := distance;
+				}
+			}
+			if (userCoor4.lat = 200.0){
+				print("No user in Dict4");
+			}else{
+			float distance := locationDistance(ul.x,ul.y,userCoor4.lat,userCoor4.lon);
+				if(distance < min){
+					min := distance;
+				}
+			}
+			//check if User existsww
+			float distance := min;
+			if (userCoor.lat = 200.0){
+				print("No user in Dict");
+			}
+			
+			// if user is at work
+			//else if (distance <= 0.75){
+			else if (distance <= cvar_distance_work){
+				float userTime := ul.timestamp.toFloat();
+				workSchedule userWorkSchedule := workScheduleDict.getOr((ul.userId).toString(),workSchedule(8,0,480));
+				
+				// userTime / time for days floored * time for one day  + 8 hours
+				integer timestamp8oclock  := (userTime/1440.0).floor()* 1440 +userWorkSchedule.hour *60 + userWorkSchedule.minutes;
+				//Calculate timediffernce
+				integer diff := timestamp8oclock - ul.timestamp;
+				//set the status to -1 if user does not exist in Dictionary 
+				integer status := arrivedAtWorkDict.getOr(ul.userId,-1);
+				
+//				{"msgtype":userLocalizationStateAP, "isTest": <bool>, "timestamp": <double>, "userId": <integer>, "areaId":<integer>,"episodeType":<string enum/ref. id>,[LocationState_Work| LocationState_Home| LocationState_Outside] "value":<time double> (delay)}
+				//FIXME: changing parameter "0" to areaId!
+				
+				//User is Currently not at Work 
+				//User is initilizied
+				if(status = -1){
+					//set arrivedatWorkDict to is at Work 1 ==True 
+					arrivedAtWorkDict.add(ul.userId,1);
+					//leftWorkDict to 0 == Flase
+					leftWorkDict.add(ul.userId,0);
+					print("User arrived at work");
+					//Send Location LocationState_Work
+					userLocationState myuls := userLocationState("userLocalizationStateAP", ul.isTest, ul.timestamp, ul.userId, 0,"LocationState_Work", diff.toFloat());
+					print(myuls.toString());
+					send myuls to "mqtt://sustage/apama";
+					
+					//Check Timedifference
+					if (diff > 5){
+					//to early on work	
+					userWorkplace uw := userWorkplace("userArriveAtWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"ArriveAtWork_Early",diff.toFloat());
+					print("to early on work	");
+					print(uw.toString());
+					send uw to "mqtt://sustage/apama";
+					}
+					//Check Timedifference
+					else if (diff < 5){
+						//to late on work	
+						userWorkplace uw := userWorkplace("userArriveAtWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"ArriveAtWork_Delayed",diff.toFloat());
+						print("to late on work	");
+						print(uw.toString());
+						send uw to "mqtt://sustage/apama";
+						}
+					//Check Timedifference
+					else {
+						//to ontime on work	
+						userWorkplace uw := userWorkplace("userArriveAtWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"ArriveAtWork_Normal",diff.toFloat());
+						print("to ontime on work	");
+						print(uw.toString());
+						send uw to "mqtt://sustage/apama";
+						}
+				//Chekc if user is not at Work
+				}else if (status = 0){
+					//Set User WorkDict to 1== true 
+					arrivedAtWorkDict.add(ul.userId,1);
+					//set Left Work Dict to 0 ==false
+					leftWorkDict.add(ul.userId,0);
+					print("user arrived at work");
+					//Send Location LocationState_Work
+					userLocationState myuls := userLocationState("userLocalizationStateAP", ul.isTest, ul.timestamp, ul.userId, 0,"LocationState_Work", diff.toFloat());
+					print(myuls.toString());
+					send myuls to "mqtt://sustage/apama";
+					//Check Timedifference
+					if (diff > 5){
+						//to early on work	
+						userWorkplace uw := userWorkplace("userArriveAtWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"ArriveAtWork_Early",diff.toFloat());
+						print("to early on work	");
+						print(uw.toString());
+						send uw to "mqtt://sustage/apama";
+						}
+					//Ceck Timedifference
+						else if (diff < 5){
+							//to late on work	
+							userWorkplace uw := userWorkplace("userArriveAtWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"ArriveAtWork_Delayed",diff.toFloat());
+							print("to late on work	");
+							print(uw.toString());
+							send uw to "mqtt://sustage/apama";
+							}
+						else {
+							//to ontime on work	
+							userWorkplace uw := userWorkplace("userArriveAtWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"ArriveAtWork_Normal",diff.toFloat());
+							print("to ontime on work	");
+							print(uw.toString());
+							send uw to "mqtt://sustage/apama";
+							}
+				//User is at Work
+				}else if (status = 1){
+					print("user is currently at work");
+				}
+				
+				
+			}
+			
+			//Person is not at Work
+			//else if(distance >= 0.75 ){
+			else if(distance >= cvar_distance_work){
+				
+				float userTime := ul.timestamp.toFloat();
+				workSchedule userWorkSchedule := workScheduleDict.getOr((ul.userId).toString(),workSchedule(8,0,480));
+				// userTime / time for days floored * time for one day  + 8 hours
+				integer timestamp8oclock  := (userTime/1440.0).floor()* 1440 +userWorkSchedule.hour *60 + userWorkSchedule.minutes+userWorkSchedule.duration;
+				//Calculate Timedifference
+				integer diff := timestamp8oclock - ul.timestamp;
+				//Get Status
+				integer status := leftWorkDict.getOr(ul.userId,-1);
+				
+
+				//Check Locationstatus is not in LeftworkDict				
+				if(status = -1){
+					//set arrivedatWork to 0 == false
+					arrivedAtWorkDict.add(ul.userId,0);
+					//set LeftWork to 1 ==true
+					leftWorkDict.add(ul.userId,1);
+					print("User leaves work");
+					userLocationState myuls := userLocationState("userLocalizationStateAP", ul.isTest, ul.timestamp, ul.userId, userCoor.areaId,"LocationState_Outside", diff.toFloat());
+					print(myuls.toString());
+					send myuls to "mqtt://sustage/apama";
+				//Check timedifference
+				if (diff > 5){
+						//to early left	
+						userWorkplace uw := userWorkplace("userDepartWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"DepartWork_Early",diff.toFloat());
+						print("to early left from work");
+						print(uw.toString());
+						send uw to "mqtt://sustage/apama";
+						}
+				//Check timedifference
+				else if (diff < 5){
+							//to late left	
+							userWorkplace uw := userWorkplace("userDepartWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"DepartWork_Delayed",diff.toFloat());
+							print("to late left from work");
+							print(uw.toString());
+							send uw to "mqtt://sustage/apama";
+							}
+				else {
+							//to ontime on work	
+							userWorkplace uw := userWorkplace("userDepartWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"DepartWork_Normal",diff.toFloat());
+							print("to ontime left from work");
+							print(uw.toString());
+							send uw to "mqtt://sustage/apama";
+							}
+				//leftworkdict is 0 false
+				}else if (status = 0){
+					arrivedAtWorkDict.add(ul.userId,0);
+					leftWorkDict.add(ul.userId,1);
+					print("user left work");
+					userLocationState myuls := userLocationState("userLocalizationStateAP", ul.isTest, ul.timestamp, ul.userId, 0,"LocationState_Outside", diff.toFloat());
+					print(myuls.toString());
+					send myuls to "mqtt://sustage/apama";
+					if (diff > 5){
+						//to early left	
+						userWorkplace uw := userWorkplace("userDepartWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"DepartWork_Early",diff.toFloat());
+						print("to early left from work");
+						print(uw.toString());
+						send uw to "mqtt://sustage/apama";
+						}
+						else if (diff < 5){
+							//to late left	
+							userWorkplace uw := userWorkplace("userDepartWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"DepartWork_Normal",diff.toFloat());
+							print("to late left from work");
+							print(uw.toString());
+							send uw to "mqtt://sustage/apama";
+							}
+						else {
+							//to ontime on work	
+							userWorkplace uw := userWorkplace("userDepartWorkAccAP",ul.isTest,ul.timestamp.toFloat(),ul.userId,userCoor.areaId,"DepartWork_Delayed",diff.toFloat());
+							print("to ontime left from work");
+							print(uw.toString());
+							send uw to "mqtt://sustage/apama";
+							}
+				//leftworkdict is 1 true 
+				}else if (status = 1){
+					print("user is currently not at work");
+					gpscoordinate userCoor := homeLocationDict.getOr(ul.userId.toString(),gpscoordinate(200.0,200.0,-1));
+					float distance := locationDistance(ul.x,ul.y,userCoor.lat,userCoor.lon);	
+					if (userCoor.lat = 200.0){
+						print("No user in Dict");
+					}
+					integer status := arrivedAtHomeDict.getOr(ul.userId,-1);
+					//if distance to home is small
+					if(distance <= 0.75){
+						//Send Location LocationState_Home
+						//check of arrived at Home is not initilized or 0== false 
+						if(status = -1 or status = 0){
+							arrivedAtHomeDict.add(ul.userId,1);
+							leftHomeDict.add(ul.userId,0);
+							userLocationState myuls := userLocationState("userLocalizationStateAP", ul.isTest, ul.timestamp, ul.userId, 0,"LocationState_Home", diff.toFloat());
+							print(myuls.toString());
+							send myuls to "mqtt://sustage/apama";
+						}
+						
+					//if distance is bigger
+					}else if (distance >0.75){
+						//Send Location LocationState_Home
+						//
+						if (status = 1){
+							arrivedAtHomeDict.add(ul.userId,0);
+							leftHomeDict.add(ul.userId,1);
+							userLocationState myuls := userLocationState("userLocalizationStateAP", ul.isTest, ul.timestamp, ul.userId, 0,"LocationState_Outside", diff.toFloat());
+							print(myuls.toString());
+							send myuls to "mqtt://sustage/apama";
+						}
+					}
+					
+				}	
+			}
+		}
+	dictionary<string,locationStateBeacon> beaconDict := {"w1s":locationStateBeacon("W1s",5.31,22.16, 7.61,22.16, 7.61,20.66, 5.31,20.66), "w1e":locationStateBeacon("W1e",5.31,18.16, 7.61,18.16, 7.61,16.16, 5.31,16.16), "w2s":locationStateBeacon("W2s",5.31,16.00, 7.61,16.00, 7.61,14.16, 5.31,14.16), "w2e":locationStateBeacon("W2s",7.61,12.66, 7.61,12.66, 7.61,10.16, 5.31,10.16), "w3s":locationStateBeacon("W3s",5.31,10.00, 7.61,10.00, 7.61,8.16, 5.31, 8.16), "w3e":locationStateBeacon("W3e",5.31,6.61, 7.61,6.16, 7.61,4.16, 5.31, 4.16), "w1m":locationStateBeacon("W1m",5.31,20.66, 7.61,20.66, 7.61,18.16, 5.31, 18.16), "w2m":locationStateBeacon("W2m",5.31,14.61, 7.61,14.16, 7.61,12.66, 5.31, 12.66), "w3m":locationStateBeacon("W3m",5.31,8.16, 7.61,8.16, 7.61,6.16, 5.31, 6.16)};
+	dictionary<string,locationStateBeacon> sideDict := {"outerSide":locationStateBeacon("OuterSide",4.31,22.16, 6.46,22.16, 6.46,3.0, 4.31,3.0), "innerSide":locationStateBeacon("InnerSide",6.46,22.16, 8.66,22.16, 8.66,3.0, 6.46,3.0)};
+	on all userLocationBeacon () as ulb{
+		print(ulb.toString());
+		locationStateBeacon a ;
+		locationStateBeacon s ;
+		boolean side:=false;
+		boolean beacon := false;
+		for a in beaconDict.values(){
+			boolean check := PointInTriangle(ulb.x,ulb.y,a.ax,a.ay,a.bx,a.by,a.cx,a.cy) or PointInTriangle(ulb.x,ulb.y,a.ax,a.ay,a.cx,a.cy,a.dx,a.dy);
+			if check {
+				beacon := true;
+				for s in sideDict.values(){
+					boolean sidecheck := PointInTriangle(ulb.x,ulb.y,s.ax,s.ay,s.bx,s.by,s.cx,s.cy) or PointInTriangle(ulb.x,ulb.y,s.ax,s.ay,s.cx,s.cy,s.dx,s.dy);
+					print("Beacon: "+ulb.userId.toString() +" " +a.id +" "+ s.id) ;
+					if sidecheck{
+						side :=true;
+						send userLocalizationBeaconWSAP("userLocalizationBeaconWSAP",ulb.isTest, ulb.timestamp,ulb.userId,"LocationState_"+s.id.toString(),1,"LocationState_" +a.id,0 ) to "mqtt://sustage/apama";
+					}
+				}
+			}
+		}
+		if beacon{
+			if side{
+				//already done
+				}
+			else{
+				//no side check for beacon
+				for a in beaconDict.values(){
+					boolean check := PointInTriangle(ulb.x,ulb.y,a.ax,a.ay,a.bx,a.by,a.cx,a.cy) or PointInTriangle(ulb.x,ulb.y,a.ax,a.ay,a.cx,a.cy,a.dx,a.dy);
+					if check {
+						send userLocalizationBeaconWSAP("userLocalizationBeaconWSAP",ulb.isTest, ulb.timestamp,ulb.userId,"LocationState_NoneSide",1,"LocationState_" +a.id,0 ) to "mqtt://sustage/apama";
+			}
+			}
+			}
+		//no beacon
+		}else{
+			//no beacon but side
+			if side{
+				for s in sideDict.values(){
+					boolean sidecheck := PointInTriangle(ulb.x,ulb.y,s.ax,s.ay,s.bx,s.by,s.cx,s.cy) or PointInTriangle(ulb.x,ulb.y,s.ax,s.ay,s.cx,s.cy,s.dx,s.dy);
+					print("Beacon: "+ulb.userId.toString() +" "+ s.id) ;
+					if sidecheck{
+						side :=true;
+						send userLocalizationBeaconWSAP("userLocalizationBeaconWSAP",ulb.isTest, ulb.timestamp,ulb.userId,"LocationState_"+s.id.toString(),1,"LocationState_WNone",0 ) to "mqtt://sustage/apama";
+					}
+			}
+			// no beacon no side
+			}else{
+				send userLocalizationBeaconWSAP("userLocalizationBeaconWSAP",ulb.isTest, ulb.timestamp,ulb.userId,"LocationState_NoneSide",1,"LocationState_WNone",0 ) to "mqtt://sustage/apama";
+			}
+		}
+	}
+	}
+}

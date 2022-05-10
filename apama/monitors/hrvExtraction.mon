@@ -1,0 +1,23 @@
+package sustage;
+/** This monitor is responsible for ...  */
+using sustage.heartrate;
+using sustage.heartrateModified;
+monitor hrvExtraction {
+	action onload() {
+		log "Loaded monitor hrvExtraction" at INFO;
+		monitor.subscribe("mqtt:sustage/heartRate");
+		on all heartrate() as hr{
+			
+			sequence<integer> hrvf := hr.hrv;
+			integer i := hrvf.size();
+			integer k :=0;
+			while k <i {
+				heartrateModified hrm := heartrateModified(hr.timestamp,hr.userId,hr.heartRate,hrvf[k],hr.isTest);
+				//print(hrm.toString());
+				send hrm to "heartrateModifiedChannel";
+				k:=k+1;
+			}
+		}
+		
+	}
+}

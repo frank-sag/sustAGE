@@ -1,0 +1,49 @@
+package sustage;
+using com.softwareag.connectivity.ConnectivityPlugins;
+using com.apama.aggregates.mean;
+using com.apama.aggregates.last;
+using sustage.crfVision;
+using sustage.postureDev6AP;
+using aggregates.sustAGE.countEpisodes;
+using aggregates.sustAGE.uniqueList;
+using aggregates.sustAGE.postureSum;
+using aggregates.sustAGE.stressCount;
+/** This monitor is responsible for ...  */
+monitor crfVisionMonitor {
+	action onload() {
+		log "Loaded monitor crfVisionMonitor" at INFO;
+		ConnectivityPlugins.onApplicationInitialized();
+		
+		//MQTT Subscribe
+		monitor.subscribe("mqtt:sustage/crfVision");
+		on all crfVision() as cv{
+			print(cv.toString());
+		}
+		
+		stream<postureDev6AP>sA := from a in all crfVision() retain 6 every 6 group by a.userId select postureDev6AP("PostureDev6AP",last(a.isTest),last(a.timestamp),a.userId,last(a.stationId),last(a.areaId),last(a.cycleTimestamp),countEpisodes(a.episodeType),uniqueList(a.postureType),postureSum(a.postureType,a.riskLevel),stressCount(a.postureType),avgStressPerBodyPart(postureSum(a.postureType,a.riskLevel),stressCount(a.postureType)));
+		stream<postureDev6AP>sB := from a in all crfVision() retain 36 every 36 group by a.userId select postureDev6AP("PostureDev36AP",last(a.isTest),last(a.timestamp),a.userId,last(a.stationId),last(a.areaId),last(a.cycleTimestamp),countEpisodes(a.episodeType),uniqueList(a.postureType),postureSum(a.postureType,a.riskLevel),stressCount(a.postureType),avgStressPerBodyPart(postureSum(a.postureType,a.riskLevel),stressCount(a.postureType)));
+		from mhr in sA 
+		  select mhr  as m {
+			print(m.toString());
+			send m to "mqtt://sustage/apamaPosture";
+		}
+		from pd in sB 
+		  select pd  as p {
+			print(p.toString());
+			send p to "mqtt://sustage/apamaPosture";
+		}
+		}
+	
+	action avgStressPerBodyPart(sequence<integer> stressSum,sequence<integer> stressCount) returns sequence<float>{
+		sequence<float> total :=[];
+		integer p := 0;
+		while p < stressSum.size(){
+				while(total.size()<stressSum.size()){
+				total.append(0.0);
+			}
+			total[p]:= stressSum[p].toFloat()/stressCount[p].toFloat();
+			p:=p+1;
+		}
+		return total;
+	}
+}

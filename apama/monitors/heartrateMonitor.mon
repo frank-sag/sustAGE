@@ -1,0 +1,246 @@
+package sustage;
+using com.softwareag.connectivity.ConnectivityPlugins;
+using com.apama.aggregates.percentile;
+using com.apama.aggregates.mean;
+using com.apama.aggregates.max;
+using com.apama.aggregates.last;
+using com.apama.aggregates.count;
+using sustage.heartrate;	
+using sustage.userHeartrateHigh;
+using sustage.meanHeartRate;
+using sustage.quantilHR;
+using sustage.userHeartrateLow;
+using sustage.OnRestRec;
+using sustage.heartrateModified;
+using sustage.avgForHRMax;
+/** This monitor is responsible for ...  */
+monitor heartrateMonitor {
+	//Database connector
+	import "sustage.sqlconnector" as sql;
+
+	//DB Passwords
+	string user := "";		//Add Username Here
+	string password := "";	//Add Password here
+
+	string database := "sustage-mysql:3306/sustage";
+		
+	//Here are the database values stored
+	dictionary< string, string> heartratedict;
+	dictionary< string, string> userconfigdict;
+	dictionary< integer, float> restingHeartrate;
+	dictionary< integer, float> reserveHeartrate;
+	userHeartrateHigh myuhh;		
+
+	action DatabaseHeartratecall(){
+		//Extracting SQL statement
+		print("DB Call");
+		sql.initConnection(database,user,password);
+		print("SELECT * FROM userprofile");
+		string sqloutput := sql.execQuery("SELECT * FROM userprofile");
+		//Parse the return statement string of the DB
+		sequence<string> tokens:= "\n".tokenize(sqloutput);
+		print(tokens.toString());
+		integer i := 0;
+		while(i <tokens.size()){
+			string tok :=tokens[i];
+			sequence<string> out:=":".tokenize(tok);
+			heartratedict.add(out[1],out[3]);
+			print(out.toString());
+			i:= i+1;
+		}
+	}
+	action DatabaseUserConfigcall(){
+		//Extracting SQL statement
+		print("DB Call");
+		sql.initConnection(database,user,password);
+		string sqloutput := sql.execQueryUserConfig("SELECT * FROM userHR_low");
+		print("SELECT * FROM userHR_low");
+		//Parse the return statement string of the DB
+		sequence<string> tokens:= "\n".tokenize(sqloutput);
+		print(tokens.toString());
+		integer i := 0;
+		while(i <tokens.size()){
+			string tok :=tokens[i];
+			sequence<string> out:=":".tokenize(tok);
+			userconfigdict.add(out[1],out[3]);
+			print(out.toString());
+			i:= i+1;
+		}
+	}
+	action onload() {
+		//Extracting SQL statement
+		DatabaseHeartratecall();
+		DatabaseUserConfigcall();
+		//Checking the Database once a Day  
+		on all at(5,*/6, *, *, *) DatabaseHeartratecall();
+
+		log "Loaded monitor heartrateMonitor" at INFO;
+		//Connectivity Initialization
+		//ConnectivityPlugins.onApplicationInitialized();
+		//MQTT Subscribe
+		monitor.subscribe("mqtt:sustage/environmental");
+		monitor.subscribe("mqtt:sustage/heartRate");
+		monitor.subscribe("mqtt:sustage/location");
+		monitor.subscribe("mqtt:sustage/knowledgeAbstraction");
+		monitor.subscribe("mqtt:sustage/deviceAction");
+		monitor.subscribe("heartrateModifiedChannel");
+		monitor.subscribe("mqtt:sustage/crfVision");
+		monitor.subscribe("mqtt:sustage/hpaVision");
+		//Heartrate monitor
+
+		//Calculating the average HeartRate 
+		stream<meanHeartRate> meanHR := from h in all heartrate() within 60.0 every 60.0 group by h.userId select meanHeartRate("userheartRateAverageAP",last(h.isTest),last(h.timestamp),h.userId,"AverageHR60",mean(h.heartRate.toFloat()));
+		stream<meanHeartRate> meanHRV := from h in all heartrateModified() within 60.0 every 60.0 group by h.userId select meanHeartRate("userheartRateAverageAP",last(h.isTest),last(h.timestamp),h.userId,"AverageHRV60",mean(h.hrv.toFloat()));
+		stream<quantilHR> quantHR := from hq in all heartrate() within 24.0*60.0*60.0 group by hq.userId select quantilHR(last(hq.timestamp),hq.userId,percentile(hq.heartRate.toFloat(),0.25));
+		stream<meanHeartRate> meanHRV300 := from h in all heartrateModified() within 300.0 every 300.0 group by h.userId select meanHeartRate("userheartRateAverageAP",last(h.isTest),last(h.timestamp),h.userId,"AverageHRV300",mean(h.hrv.toFloat()));
+		stream<meanHeartRate> meanHR300 := from h in all heartrate() within 300.0 every 300.0 group by h.userId select meanHeartRate("userheartRateAverageAP",last(h.isTest),last(h.timestamp),h.userId,"AverageHR300",mean(h.heartRate.toFloat()));
+		stream<integer> countHR := from h in all heartrate() within 300.0  select count();
+
+		//selecting the current meanHR 
+		on all heartrate() as hr{
+			print(hr.toString());
+		}
+		
+		from mhr in meanHR 
+		  select mhr  as m {
+			print(m.toString());
+			send m to "mqtt://sustage/apama";
+			if(m.value <50.0){
+				send userHeartrateLow("userheartRateLowAP",m.isTest,m.timestamp,m.userId,"HR_VLow",m.value.floor()-50) to "mqtt://sustage/apama";
+				print("HR Vlow");
+			}
+			//HR Low is only issued when there is a resting heartrate for the user
+			//reserveHR 115
+			//restingHR 65
+			float hrLowThreshhold := (0.59 * reserveHeartrate.getOr(m.userId,0.0))+restingHeartrate.getOr(m.userId,0.0);
+			float hrLowDB := (userconfigdict.getOr(m.userId.toString(),"0")).toFloat();
+			if(m.value<hrLowThreshhold){
+				send userHeartrateLow("userheartRateLowAP",m.isTest,m.timestamp,m.userId,"HR_Low",(m.value-hrLowThreshhold).floor()) to "mqtt://sustage/apama";
+				print("HR Low");
+			}else if (m.value <hrLowDB){
+				send userHeartrateLow("userheartRateLowAP",m.isTest,m.timestamp,m.userId,"HR_Low",(m.value-hrLowDB).floor()) to "mqtt://sustage/apama";
+				print("HR Low");
+			}
+			/*from qhr in quantHR where qhr.userId = m.userId
+			  select qhr as q{
+				if (m.value <= q.quantilValue){
+					send userHeartrateLow("userheartRateLowAP",m.isTest,m.timestamp,m.userId,"HR_Low",m.value.floor()) to "mqtt://sustage/apama";
+					print("HR low");
+				}
+
+			}*/
+		}
+		//select the current meanHRV
+		from mhrv in meanHRV
+		  select mhrv as m  {
+			print("HRV");
+			print(m.toString());
+			send m to "mqtt://sustage/apama";
+		}
+		//select the current meanHRV300
+		from mhrv in meanHRV300
+		  select mhrv as m  {
+			print("HRV300");
+			print(m.toString());
+			send m to "mqtt://sustage/apama";
+		}
+		//select the current meanHRV300
+		from mhr in meanHR300
+		  select mhr as m  {
+			print("HR300");
+			print(m.toString());
+			send m to "mqtt://sustage/apama";
+		}
+
+		//To Check if this works...
+		stream<avgForHRMax> avgForHRmax := from h in all heartrate() retain 10 group by h.userId  select avgForHRMax ("userheartRateHighAP",last(h.isTest),last(h.timestamp),0,h.userId,"HR_High",mean(h.heartRate.toFloat()));
+		from ahr in avgForHRmax 
+		  select ahr  as a {
+
+			string comp := heartratedict.getOr(a.userId.toString(),"30");
+
+			//Calculate the Maximum Heartrate
+			float hrmaxVal:= 208.0 - (0.7*comp.toFloat());
+
+			// Compare it with the threshhold 
+			//if(a.value >hrmaxVal - (0.15 * hrmaxVal)-10.0){
+			if(a.value > (hrmaxVal-10.0)*0.9){
+				myuhh := userHeartrateHigh("userheartRateHighAP",a.isTest,a.timestamp,a.areaId,a.userId,"HR_High",a.value-(hrmaxVal-10.0)*0.9);
+				send myuhh to "mqtt://sustage/apama";
+				print(myuhh.toString());
+			}
+		}
+
+		//if onrest message arrives then wait 60 secondes and claculate the meanHR/V
+		on all OnRestRec()as orr  -> wait(60.0){
+			print(orr.toString());
+			print("OnRest Processing - Spwaning for userId "+orr.userId.toString());
+			spawn onRestComputeMeanHR(orr.userId,orr.timestamp);
+			spawn onRestComputeMeanHRV(orr.userId, orr.timestamp);
+
+		}
+		
+	}
+	
+		
+	action onRestComputeMeanHR(integer myUserId, float mytime){
+		stream<meanHeartRate> meanHR := from h in all heartrate() within 300.0 every 300.0 group by h.userId select  meanHeartRate("userheartRateAverageAP",last(h.isTest),last(h.timestamp),h.userId,"AverageRestHR300",mean(h.heartRate.toFloat()));
+		float timeDelta:=0.0;
+
+		from mhr in meanHR
+		  select mhr  as m {
+			//print("    OnRest meanHR for userID "+myUserId.toString()+" at "+currentTime.toString()+" starting "+mytime.toString());
+			if(myUserId = m.userId){
+				string comp := heartratedict.getOr(m.userId.toString(),"30");
+				float hrmaxVal:= 208.0 - (0.7*comp.toFloat());
+				restingHeartrate.add(m.userId,m.value);
+				reserveHeartrate.add(m.userId,(hrmaxVal*0.9)-m.value);
+
+				print(m.toString());
+				send m to "mqtt://sustage/apama";
+				print("   OnRest done - byebye HR for userID "+myUserId.toString());
+				die;
+			} else {
+				//Case that user is sending no HR Values --> Kill after 7 minutes
+				//compute delta in seconds of current time and time of the event
+				timeDelta := (currentTime - mytime/1000.0);
+				print("   OnRest - no HR values since "+timeDelta.toString()+" sec for userID "+myUserId.toString());
+			
+				if (timeDelta > 60.0*7.0){		//abort after 7 min.
+					print("   OnRest - Killing no HR values sent for userID "+myUserId.toString()+" at time "+timeDelta.toString());
+					die;
+				}
+			}
+
+		}
+	}
+	
+	
+	action onRestComputeMeanHRV(integer myUserId, float mytime){
+		stream<meanHeartRate> meanHRV := from h in all heartrateModified() within 300.0 every 300.0 group by h.userId select meanHeartRate("userheartRateAverageAP",last(h.isTest),last(h.timestamp),h.userId,"AverageRestHRV300",mean(h.hrv.toFloat()));
+		float timeDelta:=0.0;
+		
+		from mhrv in meanHRV
+		  select mhrv  as mv {
+			print("    OnRest meanHRV for userID "+myUserId.toString());
+			if(myUserId = mv.userId){
+				print(mv.toString());
+				send mv to "mqtt://sustage/apama";
+				print("   OnRest done - byebye HRV for userID "+myUserId.toString());
+				die;
+			} else {
+				//Case that user is sending no HR Values --> Kill after 7 minutes
+				//compute delta in seconds of current time and time of the event
+				timeDelta := (currentTime - mytime/1000.0);
+				print("   OnRest - no HRV values since "+timeDelta.toString()+" sec for userID "+myUserId.toString());
+				if (timeDelta > 60.0*7.0){		//abort after 7 min.
+					print("   OnRest - Killing no HRV values sent for userID "+myUserId.toString()+" at time "+mytime.toString());
+					die;
+				}
+			}
+		}
+	}
+	
+	
+
+}
