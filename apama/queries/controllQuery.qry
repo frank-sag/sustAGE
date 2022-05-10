@@ -1,0 +1,20 @@
+//*****************************************************************************
+// Title:         ControllQuery
+// Description:   ControllQuery description
+// Dependencies:  None
+// Author:        MADI
+//
+//*****************************************************************************
+
+package sustage;
+
+query controllQuery {
+	
+	inputs  {
+		sustage.userLocation() key userId, isTest, timestamp within 5.1;
+	}
+
+	find userLocation as ul1 -> wait(5.0) as t without userLocation as ul2 where ul1.userId = ul2.userId between (ul1 t) {
+		send  locDataError("locDataError",ul1.isTest,ul1.timestamp,ul1.userId,ul1.userId.toString(),true) to "internal";
+}
+}
