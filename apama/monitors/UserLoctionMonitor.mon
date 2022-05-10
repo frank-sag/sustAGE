@@ -21,8 +21,8 @@ monitor UserLoctionMonitor {
 	float cvar_distance_work :=1.0;		//Former 0.75 in km
 	
 	//DB Passwords
-	string user := "";
-	string password := "";
+	string user := "";	//Add Username Here
+	string password := "";	//Add Password here
 
 	//string database := "sustage-mysql:3306/sustage";
 	
