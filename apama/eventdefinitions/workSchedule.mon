@@ -1,0 +1,9 @@
+package sustage;
+
+/** This event is ...  */
+event workSchedule {
+		integer hour;
+		integer minutes;
+		integer duration;
+	
+}

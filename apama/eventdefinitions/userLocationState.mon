@@ -1,0 +1,13 @@
+package sustage;
+//CRF/HPA: real-time location tracking system
+// UM Topic Location
+/** This event is ...  */
+event userLocationState{
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	integer areaId;
+	string episodeType;
+	float value;
+}

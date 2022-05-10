@@ -1,0 +1,7 @@
+package sustage;
+/** This event is ...  */
+event hpaObject {
+		boolean isTest;
+		integer timestamp;
+		sequence<float> OBB;
+}

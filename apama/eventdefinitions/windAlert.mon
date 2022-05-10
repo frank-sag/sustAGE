@@ -1,0 +1,12 @@
+package sustage;
+
+/** This event is ...  */
+
+event windAlert {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer areaId;
+	string episodeType;
+	float value;
+}

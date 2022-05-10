@@ -1,0 +1,10 @@
+package sustage;
+
+/** This event is ...  */
+event heartrate {
+	integer timestamp;
+	integer userId;
+	integer heartRate;
+	sequence<integer> hrv;
+	boolean isTest;
+}

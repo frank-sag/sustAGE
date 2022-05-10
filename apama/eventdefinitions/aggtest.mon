@@ -1,0 +1,10 @@
+package sustage;
+
+/** This event is ...  */
+event aggtest {
+			
+	integer userID;
+	integer companyID;
+	float bodyTempMax;
+	float HeartbeatMax;
+}

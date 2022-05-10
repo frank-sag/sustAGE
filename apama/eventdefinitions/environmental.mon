@@ -1,0 +1,19 @@
+package sustage;
+
+
+/** This event is ...  */
+//{"msgtype":valuesEnv,  "isTest": <bool>, "timestamp": <double>, "areaId": <integer>, "temperature":<float>, "humidity":<float>, "pressure":<float>, "airquality":<float>,"wind":<float>,"dust":<float>, "noise":<float>, "luminance":<float>}
+
+event environmental {
+	integer timestamp;
+	boolean isTest;
+	float temperature; 
+	integer areaId;
+	float humidity;
+	integer wind;
+	float pressure;
+	integer noise;
+	integer luminance;
+	integer airquality;
+	integer dust;
+}

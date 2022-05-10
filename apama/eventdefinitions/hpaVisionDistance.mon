@@ -1,0 +1,11 @@
+package sustage;
+
+/** This event is ...  */
+event hpaVisionDistance {
+	string msgtype;
+	boolean isTest;
+	integer userId;
+	integer timestamp;
+	float value;		
+	
+}

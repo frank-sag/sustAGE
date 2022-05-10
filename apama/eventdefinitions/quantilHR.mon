@@ -1,0 +1,7 @@
+package sustage;
+/** This event is ...  */
+event quantilHR {
+	integer timestamp;	
+	integer userId;
+	float quantilValue;	
+}

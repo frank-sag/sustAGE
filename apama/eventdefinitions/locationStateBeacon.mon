@@ -1,0 +1,14 @@
+package sustage;
+
+/** This event is ...  */
+event locationStateBeacon {
+	string id;
+	float ax;
+	float ay;
+	float bx;
+	float by;
+	float cx;
+	float cy;	
+	float dx;
+	float dy;
+}

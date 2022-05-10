@@ -1,0 +1,13 @@
+package sustage;
+//Apama Event 
+// UM topic UserAlarm
+/** This event is ...  */
+event userHeartrateHigh {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer areaId;
+	integer userId;
+	string aggregationType;
+	float value;
+}

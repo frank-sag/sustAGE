@@ -1,0 +1,11 @@
+package sustage;
+
+/** This event is ...  */
+event userSleepHoursKA {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	string aggregationType;
+	float value;
+}

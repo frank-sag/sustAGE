@@ -1,0 +1,16 @@
+package sustage;
+
+/** This event is ...  */
+event userLocationBeacon {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	float x;
+	float y;
+	float z;
+	float sigmaX;
+	float sigmaY;
+	float sigmaZ;
+	integer dummy;
+}

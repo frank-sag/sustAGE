@@ -1,0 +1,12 @@
+package sustage;
+
+/** This event is ...  */
+event userWorkplace {
+	string msgtype;
+	boolean isTest;
+	float timestamp;
+	integer userId;
+	integer areaId;
+	string episodeType;
+	float value;
+}

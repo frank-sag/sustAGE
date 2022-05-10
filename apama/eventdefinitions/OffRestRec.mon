@@ -1,0 +1,10 @@
+package sustage;
+
+/** This event is ...  */
+event OffRestRec {
+	boolean isTest;
+	float timestamp;
+	integer userId;
+	string deviceActionType;
+	float confidence;		
+}

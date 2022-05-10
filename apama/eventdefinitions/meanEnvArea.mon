@@ -1,0 +1,13 @@
+package sustage;
+
+/** This event is ...  */
+event meanEnvArea {
+	integer timestamp;
+	boolean isTest;
+	integer areaId;	
+	float temperature;
+	float humidity;
+	float luminance;
+	float noise;
+	float wind;
+}

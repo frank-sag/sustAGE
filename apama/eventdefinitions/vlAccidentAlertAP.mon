@@ -1,0 +1,14 @@
+package sustage;
+
+/** This event is ...  */
+event vlAccidentAlertAP {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	integer areaId;
+	string episodeType;
+	float value;		
+	
+}
+//{“msgtype”:”vlAccidentAlertAP”, "isTest": <bool>, "timestamp": <long/int>, "userId": <integer>, "areaId":<integer>,  "episodeType":<string enum/ref. id [ContAccidentRisk], "value":<float>}

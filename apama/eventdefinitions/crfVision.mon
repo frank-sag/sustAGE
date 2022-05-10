@@ -1,0 +1,17 @@
+package sustage;
+
+/** This event is ...  */
+event crfVision {	
+	string msgtype;//
+	boolean isTest;//
+	integer timestamp;//
+	integer userId; //
+	integer areaId;//
+	integer stationId;//
+	integer cycleTimestamp;//lookup
+	sequence<integer> postureType;//
+	sequence<integer> riskLevel;//
+	sequence<integer> postureTimestamp;//
+	string episodeType;//
+	float confidence;// 
+}

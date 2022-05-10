@@ -1,0 +1,19 @@
+package sustage;
+
+/** This event is ...  */
+event postureDev6AP {
+			
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	integer stationId;
+	integer areaId;
+	integer cycleTimestamp;
+	sequence<integer> countEpisodes;
+	sequence<integer> bodyPart;
+	sequence<integer> posturePartStressSum;
+	sequence<integer> posturePartStressCount;
+	sequence<float> avgStressPerBodyPart;
+	//string posturePartStressFilteredAvg;
+}

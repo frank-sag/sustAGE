@@ -1,0 +1,15 @@
+package sustage;
+
+/** This event is ...  */
+event Environment {
+			
+	integer companyID;
+	float t;
+	integer sensorDeviceID;
+	float temperature; 
+	float humidity;
+	float dust;
+	float windspeed;
+	float oxygen;
+	float illumination;
+}

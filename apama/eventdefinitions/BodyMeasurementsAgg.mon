@@ -1,0 +1,19 @@
+package sustage;
+
+/** This event is ...  */
+event BodyMeasurementsAgg {
+			
+	integer userID;
+	integer companyID;
+	float t;
+	float bodyTempMax;
+	float HeartbeatMax;
+	float movementVectorMax;
+	float bodyTempMin;
+	float HeartbeatMin;
+	float movementVectorMin;
+	float bodyTempAvg;
+	float HeartbeatAvg;
+	float movementVectorAvg;
+
+}

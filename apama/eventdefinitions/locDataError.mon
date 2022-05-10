@@ -1,0 +1,11 @@
+package sustage;
+
+/** This event is ...  */
+event locDataError {
+	string msgtype;
+	boolean isTest;
+ 	integer timestamp;
+ 	integer userId;
+	string sensorId;
+	boolean status;	
+}

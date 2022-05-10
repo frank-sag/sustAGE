@@ -1,0 +1,13 @@
+package sustage;
+
+/** This event is ...  */
+event avgForHRMax {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;	
+	integer areaId;
+	integer userId;
+	string episodeType;
+	float value;	
+	
+}

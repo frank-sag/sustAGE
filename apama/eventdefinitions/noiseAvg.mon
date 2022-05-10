@@ -1,0 +1,12 @@
+package sustage;
+
+/** This event is ...  */
+
+event noiseAvg {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer areaId;
+	string aggregationType;
+	float value;
+}

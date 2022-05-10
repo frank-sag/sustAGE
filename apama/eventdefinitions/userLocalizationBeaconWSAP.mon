@@ -1,0 +1,13 @@
+package sustage;
+
+/** This event is ...  */
+event userLocalizationBeaconWSAP {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	string sideLoc;
+	integer areaId;
+	string episodeType;
+	integer value;
+}

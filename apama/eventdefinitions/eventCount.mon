@@ -1,0 +1,9 @@
+package sustage;
+
+/** This event is ...  */
+event eventCount {
+		integer count;
+		integer timestamp;
+		boolean isTest;
+		integer userId;
+}	

@@ -1,0 +1,12 @@
+package sustage;
+
+/** This event is ...  */
+event rawEventforDistance {
+	integer timestamp;
+	boolean isTest;
+	integer userId;
+	float x;
+	float y;
+	float z;
+	sequence<float> OBB;
+}

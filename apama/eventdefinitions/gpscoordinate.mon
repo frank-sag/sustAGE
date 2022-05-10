@@ -1,0 +1,9 @@
+package sustage;
+
+/** This event is ...  */
+event gpscoordinate {
+		float lat;
+		float lon;
+		integer areaId;
+	
+}

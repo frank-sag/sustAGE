@@ -1,0 +1,11 @@
+package sustage;
+
+/** This event is ...  */
+event FLTalert {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer areaId;
+	string episodeType;
+	float value;
+}

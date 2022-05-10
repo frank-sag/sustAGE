@@ -1,0 +1,12 @@
+package sustage;
+
+/** This event is ...  */
+event userInBreakAP {
+	string msgtype;
+	boolean isTest;
+	integer timestamp;
+	integer userId;
+	integer areaId;
+	string episodeType;
+	float value;
+}

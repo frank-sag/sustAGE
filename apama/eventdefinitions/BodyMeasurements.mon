@@ -1,0 +1,15 @@
+package sustage;
+
+/** This event is ...  */
+event BodyMeasurements {
+	integer userID;
+	integer companyID;
+	float t;
+	integer batteryLevel;
+	float bodyTemp;
+	float Heartbeat;
+	float movX;
+	float movY;
+	float movZ;
+
+}
